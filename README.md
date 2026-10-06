@@ -1,9 +1,9 @@
-# MimamoriFall — Fall Detection System
+# MimamoriFallSystem — Fall Detect And Alert System
 
 A research and implementation project for **fall detection** using video/camera feeds, intended for monitoring older adults or care environments. The system combines three deep learning models in a pipeline:
 
 ```text
-Camera / Video → YOLO (person detection) → ViTPose (pose embedding extraction) → LSTM (Fall / Normal classification)
+Camera / Video → YOLO (person detection) → ViTPose (pose embedding extraction) → LSTM + Softmax Regression (Fall / Normal classification)
 ```
 
 The training data primarily comes from **HAR-UP** (Human Activity Recognition — University of Porto), collected using the scripts in the `crawler/` directory.
