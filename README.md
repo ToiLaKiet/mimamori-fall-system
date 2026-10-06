@@ -1,149 +1,149 @@
-# MimamoriFall — Hệ thống phát hiện ngã
+# MimamoriFall — Fall Detection System
 
-Dự án nghiên cứu và triển khai hệ thống **phát hiện ngã (fall detection)** từ video/camera, phục vụ giám sát người cao tuổi hoặc môi trường chăm sóc. Hệ thống kết hợp ba mô hình deep learning theo pipeline:
+A research and implementation project for **fall detection** using video/camera feeds, intended for monitoring older adults or care environments. The system combines three deep learning models in a pipeline:
 
+```text
+Camera / Video → YOLO (person detection) → ViTPose (pose embedding extraction) → LSTM (Fall / Normal classification)
 ```
-Camera / Video  →  Yolo (phát hiện người)  →  ViTPose (trích embedding tư thế)  →  LSTM (phân loại Fall / Normal)
-```
 
-Dữ liệu huấn luyện chủ yếu lấy từ bộ **HAR-UP** (Human Activity Recognition — University of Porto), được thu thập qua các script trong thư mục `crawler/`.
+The training data primarily comes from **HAR-UP** (Human Activity Recognition — University of Porto), collected using the scripts in the `crawler/` directory.
 
-## Demo video
+## Demo Video
 
-[![Demo MimamoriFall](https://img.youtube.com/vi/OCikfFIfeos/maxresdefault.jpg)](https://www.youtube.com/watch?v=OCikfFIfeos)
+[![MimamoriFall Demo](https://img.youtube.com/vi/OCikfFIfeos/maxresdefault.jpg)](https://www.youtube.com/watch?v=OCikfFIfeos)
 
-Xem trực tiếp: [https://www.youtube.com/watch?v=OCikfFIfeos](https://www.youtube.com/watch?v=OCikfFIfeos)
+Watch directly: [https://www.youtube.com/watch?v=OCikfFIfeos](https://www.youtube.com/watch?v=OCikfFIfeos)
 
 ---
 
-## Cấu trúc thư mục
+## Directory Structure
 
-```
+```text
 job/
-├── DETR+ViT+LSTM/     # Pipeline chính: RT-DETR + ViTPose + LSTM
-├── ViT+CNN+LSTM/      # Phiên bản thử nghiệm sớm: ViTPose skeleton + CNN + LSTM
-├── crawler/           # Thu thập & tải dataset HAR-UP
-├── paper/             # Tài liệu nghiên cứu liên quan
-├── plot.py            # Vẽ confusion matrix & tính metric đánh giá
-├── requirements.txt   # Dependencies dùng chung (training, crawler)
-└── note.txt           # Ghi chú nhanh về các script
+├── DETR+ViT+LSTM/     # Main pipeline: RT-DETR + ViTPose + LSTM
+├── ViT+CNN+LSTM/      # Early experimental version: ViTPose skeleton + CNN + LSTM
+├── crawler/          # Collect and download the HAR-UP dataset
+├── paper/            # Related research papers
+├── plot.py           # Plot confusion matrices and calculate evaluation metrics
+├── requirements.txt  # Shared dependencies (training, crawler)
+└── note.txt          # Quick notes on the scripts
 ```
 
 ---
 
-## `DETR+ViT+LSTM/` — Pipeline chính
+## `DETR+ViT+LSTM/` — Main Pipeline
 
-Đây là nhánh phát triển chính, từ chuẩn bị dữ liệu đến ứng dụng realtime.
+This is the main development branch, covering data preparation through real-time application deployment.
 
-### `Method/` — Quy trình nghiên cứu & huấn luyện
+### `Method/` — Research and Training Workflow
 
-| Thư mục | Mục đích |
-|---------|----------|
-| `Dataset Preparation/0. Labeling Timestamps/` | Gán nhãn fall/normal theo timestamp từ file CSV |
-| `Dataset Preparation/1. Manifest Creation/` | Tạo file manifest ánh xạ ảnh ↔ nhãn ↔ timestamp |
-| `Dataset Preparation/2. BBox Detection/` | Phát hiện bounding box người bằng RT-DETR-X hoặc YOLO |
-| `Dataset Preparation/3. Sequences Dataset/` | Ghép chuỗi frame, crop ảnh người, augment dữ liệu |
-| `Dataset Preparation/4. ViTPose Embeddings/` | Trích vector embedding từ ViTPose cho từng frame |
-| `imageonly_embedded_dataset/` | Dataset đã xử lý sẵn (train / val / test) |
-| `Model/` | Định nghĩa mô hình LSTM, loader dữ liệu và script `train.py` |
+| Directory | Purpose |
+|-----------|---------|
+| `Dataset Preparation/0. Labeling Timestamps/` | Assign fall/normal labels based on timestamps in CSV files |
+| `Dataset Preparation/1. Manifest Creation/` | Create manifest files mapping images ↔ labels ↔ timestamps |
+| `Dataset Preparation/2. BBox Detection/` | Detect person bounding boxes using RT-DETR-X or YOLO |
+| `Dataset Preparation/3. Sequences Dataset/` | Assemble frame sequences, crop person images, and augment data |
+| `Dataset Preparation/4. ViTPose Embeddings/` | Extract embedding vectors from ViTPose for each frame |
+| `imageonly_embedded_dataset/` | Preprocessed dataset (train / val / test) |
+| `Model/` | LSTM model definitions, data loaders, and the `train.py` script |
 
-### `runs1/` … `runs5/` — Kết quả huấn luyện
+### `runs1/` … `runs5/` — Training Results
 
-Mỗi thư mục lưu checkpoint của một lần chạy thử nghiệm:
+Each directory stores the checkpoints and associated files from an experimental run:
 
-- `best.pt` — checkpoint tốt nhất
-- `last.pt` — checkpoint cuối cùng
-- `scaler.npz` — tham số chuẩn hóa embedding
-- `history.jsonl` — log quá trình train
+- `best.pt` — Best checkpoint
+- `last.pt` — Final checkpoint
+- `scaler.npz` — Embedding normalization parameters
+- `history.jsonl` — Training logs
 
-Checkpoint đang dùng cho inference: `runs5/best.pt`.
+The checkpoint currently used for inference is `runs5/best.pt`.
 
-### `MVP/` — Ứng dụng web demo (batch + live camera)
+### `MVP/` — Demo Web Application (Batch + Live Camera)
 
-Ứng dụng web để thử nghiệm pipeline trên ảnh/video hoặc camera trực tiếp.
+A web application for testing the pipeline on images/videos or live camera feeds.
 
-| Thành phần | Mô tả |
-|------------|-------|
-| `backend/` | API Flask: load model, xử lý ảnh theo batch hoặc từng frame live |
-| `frontend/` | Giao diện React (Vite): upload ảnh, xem kết quả, demo camera |
+| Component | Description |
+|-----------|-------------|
+| `backend/` | Flask API: load models and process images in batches or individual live frames |
+| `frontend/` | React interface (Vite): upload images, view results, and test live camera input |
 
-Pipeline inference: RT-DETR → crop người → ViTPose embedding → buffer 10 frame → LSTM phân loại.
+Inference pipeline: RT-DETR → person cropping → ViTPose embeddings → 10-frame buffer → LSTM classification.
 
-### `MVP2_Live/` — Hệ thống cảnh báo ngã realtime
+### `MVP2_Live/` — Real-Time Fall Alert System
 
-Phiên bản nâng cấp của MVP, tập trung vào **cảnh báo thời gian thực**:
+An upgraded version of the MVP focused on **real-time alerts**:
 
-- Backend Flask (port 5002) + Frontend React (port 5174)
-- FSM (finite state machine) xử lý logic cảnh báo: phát hiện fall → theo dõi ổn định bbox 5 giây → kích hoạt agent gửi thông báo
-- Chi tiết cài đặt và API: xem [`DETR+ViT+LSTM/MVP2_Live/README.md`](DETR+ViT+LSTM/MVP2_Live/README.md)
-
----
-
-## `ViT+CNN+LSTM/` — Phiên bản thử nghiệm sớm
-
-Hướng tiếp cận ban đầu: trích skeleton từ ViTPose, vẽ lên nền đen, đưa vào **CNN + LSTM** để phân loại.
-
-| File / thư mục | Mục đích |
-|----------------|----------|
-| `prepare_labels.py` | Gán nhãn từ timestamp trong CSV |
-| `extract_vitpose_skeletons.py` | Trích xuất ảnh skeleton |
-| `manifestcreation.ipynb` | Tạo manifest mapping nhãn ↔ ảnh |
-| `sequence_data.py` | Load và chuẩn bị chuỗi frame cho training |
-| `model.py` | Định nghĩa `SkeletonImageLSTMClassifier` (CNN + LSTM) |
-| `train_vitpose_lstm.py` | Script huấn luyện và inference |
-| `utils.py` | Hàm tiện ích train/evaluate |
-| `mvp/` | Demo realtime qua OpenCV (camera → skeleton overlay → classifier) |
-
-Xem hướng dẫn chạy MVP: [`ViT+CNN+LSTM/mvp/README.md`](ViT+CNN+LSTM/mvp/README.md).
+- Flask backend (port 5002) + React frontend (port 5174)
+- An FSM (finite state machine) manages the alert logic: detect a fall → monitor bounding box stability for 5 seconds → trigger an agent to send a notification
+- For setup instructions and API details, see [`DETR+ViT+LSTM/MVP2_Live/README.md`](DETR+ViT+LSTM/MVP2_Live/README.md)
 
 ---
 
-## `crawler/` — Thu thập dataset HAR-UP
+## `ViT+CNN+LSTM/` — Early Experimental Version
 
-Script tự động crawl và tải dữ liệu từ trang HAR-UP:
+The initial approach extracts skeletons using ViTPose, renders them on a black background, and feeds them into a **CNN + LSTM** model for classification.
 
-| File | Mục đích |
-|------|----------|
-| `crawl_har_up.py` | Crawl link dataset từ website |
-| `crawl_csv_har_up.py` | Crawl link file CSV |
-| `download_har_up_datasets.py` | Tải file CSV theo danh sách trong `har_up_dataset_links.json` |
-| `har_up_links.json` / `har_up_dataset_links.json` | Danh sách link đã crawl |
+| File / Directory | Purpose |
+|------------------|---------|
+| `prepare_labels.py` | Assign labels based on timestamps in CSV files |
+| `extract_vitpose_skeletons.py` | Extract skeleton images |
+| `manifestcreation.ipynb` | Create a manifest mapping labels ↔ images |
+| `sequence_data.py` | Load and prepare frame sequences for training |
+| `model.py` | Define `SkeletonImageLSTMClassifier` (CNN + LSTM) |
+| `train_vitpose_lstm.py` | Training and inference script |
+| `utils.py` | Training/evaluation utility functions |
+| `mvp/` | Real-time demo using OpenCV (camera → skeleton overlay → classifier) |
+
+For instructions on running the MVP, see [`ViT+CNN+LSTM/mvp/README.md`](ViT+CNN+LSTM/mvp/README.md).
+
+---
+
+## `crawler/` — HAR-UP Dataset Collection
+
+Scripts for automatically crawling and downloading data from the HAR-UP website:
+
+| File | Purpose |
+|------|---------|
+| `crawl_har_up.py` | Crawl dataset links from the website |
+| `crawl_csv_har_up.py` | Crawl CSV file links |
+| `download_har_up_datasets.py` | Download CSV files using the list in `har_up_dataset_links.json` |
+| `har_up_links.json` / `har_up_dataset_links.json` | Lists of crawled links |
 
 ---
 
 ## `paper/`
 
-Chứa tài liệu nghiên cứu liên quan (`upfall.pdf`).
+Contains related research material (`upfall.pdf`).
 
 ---
 
-## File ở thư mục gốc
+## Root Directory Files
 
-| File | Mục đích |
-|------|----------|
-| `requirements.txt` | Dependencies Python dùng chung (PyTorch, transformers, ultralytics, selenium, …) |
-| `plot.py` | Vẽ heatmap confusion matrix và tính Accuracy / Precision / Recall / F1 cho lớp Fall |
-| `confusion_matrix.png` | Kết quả đánh giá đã xuất |
-| `note.txt` | Ghi chú nhanh về vai trò các script trong `ViT+CNN+LSTM/` |
+| File | Purpose |
+|------|---------|
+| `requirements.txt` | Shared Python dependencies (PyTorch, transformers, ultralytics, selenium, etc.) |
+| `plot.py` | Plot a confusion matrix heatmap and calculate Accuracy / Precision / Recall / F1 for the Fall class |
+| `confusion_matrix.png` | Exported evaluation results |
+| `note.txt` | Quick notes on the roles of scripts in `ViT+CNN+LSTM/` |
 
 ---
 
-## Luồng làm việc tổng quát
+## Overall Workflow
 
+```text
+1. Collect data                   crawler/
+2. Label data and create manifests Method/Dataset Preparation/ (or ViT+CNN+LSTM/)
+3. Detect people (bounding boxes)  RT-DETR-X
+4. Extract pose embeddings        ViTPose
+5. Train the LSTM                 Method/Model/train.py → runs*/
+6. Deploy inference               MVP/ or MVP2_Live/
 ```
-1. Thu thập dữ liệu          crawler/
-2. Gán nhãn & tạo manifest   Method/Dataset Preparation/  (hoặc ViT+CNN+LSTM/)
-3. Phát hiện người (bbox)    RT-DETR-X
-4. Trích embedding tư thế    ViTPose
-5. Huấn luyện LSTM           Method/Model/train.py  →  runs*/
-6. Triển khai inference      MVP/  hoặc  MVP2_Live/
-```
 
 ---
 
-## Yêu cầu hệ thống
+## System Requirements
 
 - Python 3.10+
 - PyTorch (CUDA / MPS / CPU)
-- OpenMMLab stack cho ViTPose (xem `DETR+ViT+LSTM/MVP/backend/setup_env.sh`)
-- Node.js 18+ (cho frontend MVP / MVP2_Live)
+- OpenMMLab stack for ViTPose (see `DETR+ViT+LSTM/MVP/backend/setup_env.sh`)
+- Node.js 18+ (for the MVP / MVP2_Live frontend)
